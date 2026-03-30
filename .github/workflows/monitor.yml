@@ -1,0 +1,44 @@
+name: CI Drift Monitoring
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # daily at 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Train baseline model
+        run: python model/train.py
+
+      - name: Generate production data
+        run: python data/generate_production_data.py
+
+      - name: Run drift detector
+        run: python monitoring/drift_detector.py
+
+      - name: Generate monitoring report
+        run: python reports/generate_report.py
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+      - name: Upload monitoring report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-report-${{ github.run_id }}
+          path: reports/
+          retention-days: 30
